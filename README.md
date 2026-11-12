@@ -18,12 +18,12 @@ O nó sensor utiliza um microcontrolador **ESP32** acoplado ao sensor **DHT11 (G
 
 $$I = \frac{R}{20} + \frac{27 - T}{10}$$
 
-| Valor do Índice ($I$) | Classificação do Risco |
+| Valor do Índice (I) | Classificação do Risco |
 | :--- | :--- |
-| $I > 4,0$ | Improvável / Baixo |
-| $2,5 < I \le 4,0$ | Moderado |
-| $2,0 < I \le 2,5$ | Alto |
-| $I \le 2,0$ | Muito Alto / Extremo |
+| I > 4,0 | Improvável / Baixo |
+| 2,5 < I \le 4,0 | Moderado |
+| 2,0 < I \le 2,5 | Alto |
+| I \le 2,0 | Muito Alto / Extremo |
 
 ## 📂 Estrutura do Repositório
 * `index.html`, `manifest.json`, `sw.js`: Interface PWA com suporte a dados históricos (CSV), Web Serial API (USB) e Wi-Fi.
