@@ -1,18 +1,228 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoramento de Queimadas - Médio Piracicaba</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f9; }
-        h1 { color: #d9534f; }
-        p { color: #555; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>Índice de Ångström | Santa Bárbara vs. INMET A535</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ref: #a855f7;
+      --baixo: #22c55e;
+      --moderado: #eab308;
+      --alto: #f97316;
+      --extremo: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 20px 16px; max-width: 960px; margin: 0 auto; line-height: 1.4; }
+    
+    header { border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 20px; }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    header p { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .card-header { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 600; }
+    .card-main { font-size: 1.9rem; font-weight: 800; margin: 6px 0; }
+    .card-meta { font-size: 0.82rem; color: var(--muted); }
+
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 5px; font-size: 0.8rem; font-weight: 700; color: #0f172a; margin-top: 6px; }
+
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+    .chart-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 0.85rem; margin-bottom: 20px; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #162032; color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
+    tr:last-child td { border-bottom: none; }
+
+    footer { text-align: center; font-size: 0.78rem; color: var(--muted); padding-top: 8px; }
+  </style>
 </head>
 <body>
-    <h1>Sistema IoT Frugal - Risco de Queimadas (Ångström)</h1>
-    <p>Aplicação PWA em desenvolvimento para o I CCIT UNIFEI Itabira.</p>
-    <p><em>Em breve: Painel de telemetria em tempo real.</em></p>
+
+  <header>
+    <h1>Predição de Risco de Queimadas — Índice de Ångström</h1>
+    <p>Ensaio Experimental em Santa Bárbara - MG (31/10) • Dados Oficiais INMET A535 (Florestal - MG)</p>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-header">Nó Local — Santa Bárbara/MG (Média 61 min)</div>
+      <div class="card-main" id="angLocal">--</div>
+      <div><span class="badge" id="badgeLocal">CARREGANDO</span></div>
+      <div class="card-meta" id="metaLocal" style="margin-top:8px;">T média: -- °C | UR média: -- %</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">INMET A535 — Florestal/MG (Pico Crítico 31/10)</div>
+      <div class="card-main" id="angInmet">--</div>
+      <div><span class="badge" id="badgeInmet">CARREGANDO</span></div>
+      <div class="card-meta" id="metaInmet" style="margin-top:8px;">Distância: 106 km • Série Horária Oficial</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Evolução do Índice de Ångström (1.806 amostras • 31/10) vs. Máxima Severidade A535</div>
+    <canvas id="grafico" height="120"></canvas>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Parâmetro (31/10)</th>
+        <th>Nó IoT Local (Santa Bárbara)</th>
+        <th>INMET A535 (Pico 13h00 / Média 24h)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Temperatura</td>
+        <td id="tabTempLocal">--</td>
+        <td id="tabTempInmet">--</td>
+      </tr>
+      <tr>
+        <td>Umidade Relativa</td>
+        <td id="tabUmidLocal">--</td>
+        <td id="tabUmidInmet">--</td>
+      </tr>
+      <tr>
+        <td>Índice de Ångström (I)</td>
+        <td id="tabAngLocal">--</td>
+        <td id="tabAngInmet">--</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Mateus Rocha Oliveira • Orientador: Prof. Bruno Renó Gama | I CCIT — UNIFEI Campus Itabira (2026)
+  </footer>
+
+  <script>
+    function calcularI(temp, umid) {
+      return (umid / 20.0) + ((27.0 - temp) / 10.0);
+    }
+
+    function classificar(I) {
+      if (I > 4.0) return { texto: "IMPROVÁVEL / BAIXO", cor: "var(--baixo)" };
+      if (I > 2.5) return { texto: "MODERADO", cor: "var(--moderado)" };
+      if (I > 2.0) return { texto: "ALTO", cor: "var(--alto)" };
+      return { texto: "MUITO ALTO / EXTREMO", cor: "var(--extremo)" };
+    }
+
+    async function iniciar() {
+      // 1. Lê o CSV oficial do INMET A535 (dados/inmet_a535_31_10.csv)
+      let iPicoInmet = 2.44;
+      try {
+        const respInmet = await fetch("dados/inmet_a535_31_10.csv");
+        const txtInmet = await respInmet.text();
+        const linhasInmet = txtInmet.trim().split("\n").slice(1);
+
+        let minI = 99, picoT = 0, picoU = 0, picoHora = "";
+        let somaT = 0, somaU = 0, somaI = 0, count = 0;
+
+        linhasInmet.forEach((l) => {
+          const cols = l.split(";").map(c => c.replace(/"/g, "").replace(",", "."));
+          const horaUtc = cols[1];
+          const t = parseFloat(cols[2]);
+          const u = parseFloat(cols[5]);
+          if (!isNaN(t) && !isNaN(u)) {
+            const I = calcularI(t, u);
+            somaT += t; somaU += u; somaI += I; count++;
+            if (I < minI) {
+              minI = I;
+              picoT = t;
+              picoU = u;
+              const hLocal = ((parseInt(horaUtc, 10) / 100 - 3 + 24) % 24).toString().padStart(2, "0") + ":00";
+              picoHora = `${hLocal} local (${horaUtc} UTC)`;
+            }
+          }
+        });
+
+        iPicoInmet = minI;
+        const clsInmet = classificar(iPicoInmet);
+        document.getElementById("angInmet").textContent = `I = ${iPicoInmet.toFixed(2)}`;
+        const bInmet = document.getElementById("badgeInmet");
+        bInmet.textContent = clsInmet.texto;
+        bInmet.style.background = clsInmet.cor;
+        document.getElementById("metaInmet").textContent = `Pico às ${picoHora}: T = ${picoT.toFixed(1)} °C | UR = ${picoU.toFixed(1)} %`;
+
+        document.getElementById("tabTempInmet").textContent = `${picoT.toFixed(1)} °C (Média 24h: ${(somaT/count).toFixed(1)} °C)`;
+        document.getElementById("tabUmidInmet").textContent = `${picoU.toFixed(1)} % (Média 24h: ${(somaU/count).toFixed(1)} %)`;
+        document.getElementById("tabAngInmet").textContent = `${iPicoInmet.toFixed(2)} (${clsInmet.texto}) • Média 24h: ${(somaI/count).toFixed(2)}`;
+      } catch (e) {
+        document.getElementById("metaInmet").textContent = "Erro ao ler dados/inmet_a535_31_10.csv";
+      }
+
+      // 2. Carrega série experimental real de Santa Bárbara (dados/ensaio_santa_barbara_31_10.csv)
+      const resp = await fetch("dados/ensaio_santa_barbara_31_10.csv");
+      const texto = await resp.text();
+      const linhas = texto.trim().split("\n").slice(1);
+
+      const labels = [], serieLocal = [], serieRef = [];
+      let somaT = 0, somaU = 0, somaI = 0, minI = 99, maxI = -99, minT = 99, maxT = -99, minU = 99, maxU = -99;
+
+      linhas.forEach((linha) => {
+        const [ms, tStr, rStr] = linha.split(",");
+        const t = parseFloat(tStr), r = parseFloat(rStr);
+        if (!isNaN(t) && !isNaN(r)) {
+          const I = calcularI(t, r);
+          labels.push((parseFloat(ms) / 60000).toFixed(1) + "m");
+          serieLocal.push(Number(I.toFixed(2)));
+          serieRef.push(Number(iPicoInmet.toFixed(2)));
+
+          somaT += t; somaU += r; somaI += I;
+          if (I < minI) minI = I; if (I > maxI) maxI = I;
+          if (t < minT) minT = t; if (t > maxT) maxT = t;
+          if (r < minU) minU = r; if (r > maxU) maxU = r;
+        }
+      });
+
+      const n = serieLocal.length;
+      const medT = somaT / n, medU = somaU / n, medI = somaI / n;
+      const clsLocal = classificar(medI);
+
+      document.getElementById("angLocal").textContent = `I = ${medI.toFixed(2)}`;
+      const bLocal = document.getElementById("badgeLocal");
+      bLocal.textContent = clsLocal.texto;
+      bLocal.style.background = clsLocal.cor;
+      document.getElementById("metaLocal").textContent = `T média: ${medT.toFixed(1)} °C | UR média: ${medU.toFixed(1)} %`;
+
+      document.getElementById("tabTempLocal").textContent = `${medT.toFixed(1)} °C (${minT.toFixed(1)} – ${maxT.toFixed(1)} °C)`;
+      document.getElementById("tabUmidLocal").textContent = `${medU.toFixed(1)} % (${minU.toFixed(1)} – ${maxU.toFixed(1)} %)`;
+      document.getElementById("tabAngLocal").textContent = `${medI.toFixed(2)} (${minI.toFixed(2)} – ${maxI.toFixed(2)})`;
+
+      // 3. Gráfico comparativo enxuto
+      new Chart(document.getElementById("grafico"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            { label: "Santa Bárbara (Nó IoT Local)", data: serieLocal, borderColor: "#38bdf8", borderWidth: 2, pointRadius: 0, tension: 0.2 },
+            { label: "INMET A535 (Pico Crítico 31/10 — 106 km)", data: serieRef, borderColor: "#a855f7", borderWidth: 2, borderDash: [6, 6], pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: "#f8fafc", boxWidth: 14 } } },
+          scales: {
+            x: { ticks: { color: "#94a3b8", maxTicksLimit: 8 }, grid: { color: "#1e293b" } },
+            y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } }
+          }
+        }
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", iniciar);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  </script>
 </body>
 </html>
